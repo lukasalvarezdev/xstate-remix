@@ -3,8 +3,8 @@ import { useLoaderData } from '@remix-run/react';
 import { json } from '@remix-run/node';
 import { useSelector } from '@xstate/react';
 
-import type { StateType } from '~/machine';
-import { ServiceProvider, useService } from '~/machine';
+import type { StateType } from '~/machines/todo-machine';
+import { ServiceProvider, useService } from '~/machines/todo-machine';
 
 export async function loader() {
 	return json({
@@ -113,10 +113,7 @@ const TodoItem = React.memo(({ id }: { id: number }) => {
 	const inputId = React.useId();
 
 	return (
-		<div
-			key={todo.id}
-			className="flex gap-2 p-4 border-b border-slate-100 justify-between items-end"
-		>
+		<div className="flex gap-2 p-4 border-b border-slate-100 justify-between items-end">
 			<div className="flex-1">
 				<label htmlFor={inputId} className="font-medium text-sm pl-1 text-slate-600">
 					Todo name
