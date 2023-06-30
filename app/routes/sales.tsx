@@ -17,7 +17,7 @@ export async function loader() {
 	});
 }
 
-export default function Index() {
+export default function Component() {
 	const { products } = useLoaderData<typeof loader>();
 
 	return (

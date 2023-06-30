@@ -16,7 +16,7 @@ export async function loader() {
 	});
 }
 
-export default function Index() {
+export default function Component() {
 	const { todos } = useLoaderData<typeof loader>();
 
 	return (
