@@ -4,7 +4,88 @@ import * as React from 'react';
 export default function Component() {
 	return (
 		<div className="w-full max-w-xs mx-auto py-6">
-			<ClientCombobox />
+			<div className="mb-4">
+				<ClientCombobox />
+			</div>
+
+			<PriceListSelectorPopover defaultValue={priceLists[0]} onChange={console.log} />
+		</div>
+	);
+}
+
+// TODO: WORK WITH SEARCH PARAMS
+// TODO: USEONCLICKOUTSIDE
+// TODO: USEDEBOUNCE
+
+type ClientComboboxProps = { onChange?: (client: Client) => void; defaultValue?: Client };
+function ClientCombobox({ onChange, defaultValue }: ClientComboboxProps) {
+	const [state, dispatch] = React.useReducer(reducer, {
+		...initialState,
+		selectedClient: defaultValue || initialState.selectedClient,
+	});
+	const { isOpen, selectedClient, search } = state;
+	const inputRef = React.useRef<HTMLInputElement>(null);
+	const fetcher = useFetcher();
+
+	const load = fetcher.load;
+	const clientsData = (fetcher.data?.clients || []) as Client[];
+	const isLoading = fetcher.state !== 'idle';
+	const clients = isLoading && search ? match(clientsData, search) : clientsData;
+
+	React.useEffect(() => {
+		load(`/api/clients?search=${search}`);
+	}, [load, search]);
+
+	React.useEffect(() => {
+		if (isOpen) inputRef.current?.focus();
+	}, [isOpen]);
+
+	return (
+		<div className="relative">
+			<button
+				className="border border-slate-200 flex items-center justify-between px-3 py-2 w-full hover:bg-slate-50"
+				onClick={() => dispatch({ type: isOpen ? 'close' : 'open' })}
+			>
+				{selectedClient.name}
+			</button>
+
+			{isOpen ? (
+				<div className="absolute top-full mt-4 bg-white shadow-md rounded-md w-full z-10">
+					<div className="p-2">
+						<input
+							type="text"
+							name="text"
+							className="border border-gray-200 pl-3 h-10 block w-full"
+							placeholder="Buscar cliente"
+							ref={inputRef}
+							value={search}
+							onChange={e => dispatch({ type: 'search', payload: e.target.value })}
+						/>
+					</div>
+
+					{isLoading && clients.length === 0 ? (
+						<p className="p-2">Cargando...</p>
+					) : (
+						<ul className="divide-y divide-slate-100">
+							{clients.map(client => (
+								<li key={client.id}>
+									<button
+										className={`w-full text-left px-3 py-2 hover:bg-slate-100 ${
+											client.id === selectedClient.id ? 'bg-slate-50 font-medium' : ''
+										}`}
+										onClick={() => {
+											dispatch({ type: 'select', payload: client });
+											onChange?.(client);
+										}}
+									>
+										{client.name}
+									</button>
+								</li>
+							))}
+						</ul>
+					)}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -42,65 +123,52 @@ const initialState = {
 	search: '',
 };
 
-// TODO: WORK WITH SEARCH PARAMS
-// TODO: USEONCLICKOUTSIDE
-// TODO: USEDEBOUNCE
+function match(clients: Client[], search: string) {
+	return clients.filter(client => client.name.toLowerCase().includes(search.toLowerCase()));
+}
 
-function ClientCombobox() {
-	const [state, dispatch] = React.useReducer(reducer, initialState);
-	const { isOpen, selectedClient, search } = state;
-	const inputRef = React.useRef<HTMLInputElement>(null);
-	const fetcher = useFetcher();
-
-	const load = fetcher.load;
-	const clientsData = (fetcher.data?.clients || []) as Client[];
-	const isLoading = fetcher.state !== 'idle';
-	const clients = isLoading && search ? match(clientsData, search) : clientsData;
-
-	React.useEffect(() => {
-		load(`/api/clients?search=${search}`);
-	}, [load, search]);
-
-	React.useEffect(() => {
-		if (isOpen) inputRef.current?.focus();
-	}, [isOpen]);
+type PriceList = { id: number; name: string };
+const priceLists = [
+	{ id: 1, name: 'Lista 1' },
+	{ id: 2, name: 'Lista 2' },
+	{ id: 3, name: 'Lista 3' },
+];
+type PriceListSelectorPopoverProps = {
+	onChange: (priceList: PriceList) => void;
+	defaultValue: PriceList;
+};
+function PriceListSelectorPopover({ onChange, defaultValue }: PriceListSelectorPopoverProps) {
+	const [priceList, setPriceList] = React.useState(defaultValue);
+	const [isOpen, setIsOpen] = React.useState(false);
 
 	return (
 		<div className="relative">
 			<button
 				className="border border-slate-200 flex items-center justify-between px-3 py-2 w-full hover:bg-slate-50"
-				onClick={() => dispatch({ type: isOpen ? 'close' : 'open' })}
+				onClick={() => setIsOpen(!isOpen)}
 			>
-				{selectedClient.name}
+				{priceList.name}
 			</button>
 
 			{isOpen ? (
-				<div className="absolute top-full mt-4 bg-white shadow-md rounded-md w-full">
-					<div className="p-2">
-						<input
-							type="text"
-							name="text"
-							className="border border-gray-200 pl-3 h-10 block w-full"
-							placeholder="Buscar cliente"
-							ref={inputRef}
-							value={search}
-							onChange={e => dispatch({ type: 'search', payload: e.target.value })}
-						/>
-					</div>
-
-					{isLoading && clients.length === 0 ? (
-						<p className="p-2">Cargando...</p>
+				<div className="absolute top-full mt-4 bg-white shadow-md rounded-md w-full z-10">
+					{priceLists.length === 0 ? (
+						<p className="p-2">No hay listas de precios</p>
 					) : (
 						<ul className="divide-y divide-slate-100">
-							{clients.map(client => (
-								<li key={client.id}>
+							{priceLists.map(price => (
+								<li key={price.id}>
 									<button
 										className={`w-full text-left px-3 py-2 hover:bg-slate-100 ${
-											client.id === selectedClient.id ? 'bg-slate-50 font-medium' : ''
+											price.id === priceList.id ? 'bg-slate-50 font-medium' : ''
 										}`}
-										onClick={() => dispatch({ type: 'select', payload: client })}
+										onClick={() => {
+											setPriceList(price);
+											setIsOpen(false);
+											onChange(price);
+										}}
 									>
-										{client.name}
+										{price.name}
 									</button>
 								</li>
 							))}
@@ -110,8 +178,4 @@ function ClientCombobox() {
 			) : null}
 		</div>
 	);
-}
-
-function match(clients: Client[], search: string) {
-	return clients.filter(client => client.name.toLowerCase().includes(search.toLowerCase()));
 }
