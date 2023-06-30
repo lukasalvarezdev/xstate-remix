@@ -1,5 +1,7 @@
 # Welcome to the todo app made by Luki!
 
+A small example app using xstate with remix.
+
 ## Stack
 
 - [Remix](https://remix.run)
@@ -8,9 +10,10 @@
 
 ## Development
 
-It's pretty simple, just run:
+It's pretty simple:
 
 ```sh
+$ npm install
 $ npm run dev
 ```
 
