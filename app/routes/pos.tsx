@@ -15,7 +15,10 @@ export default function Component() {
 				<div className="w-full md:grid grid-cols-40/60 flex-1">
 					<div className="border-r border-slate-200 flex flex-col">
 						<ProductsSearchList />
-						<TotalsSummary />
+						<div className="flex-1">
+							<TotalsSummary />
+							<PaymentForms />
+						</div>
 					</div>
 
 					<div>
@@ -27,6 +30,76 @@ export default function Component() {
 				<TotalsSummaryFooter />
 			</main>
 		</PosServiceProvider>
+	);
+}
+
+function paymentFormsSelector(state: PosStateType) {
+	return state.context.paymentForms;
+}
+
+function PaymentForms() {
+	const service = usePosService();
+	const paymentForms = useSelector(service, paymentFormsSelector);
+	const totalCollected = paymentForms.reduce((acc, paymentForm) => acc + paymentForm.amount, 0);
+
+	return (
+		<div>
+			{paymentForms.map(paymentForm => (
+				<div key={paymentForm.id} className="flex gap-2">
+					<select
+						className="block border border-slate-200 rounded-none w-full h-7 focus:ring-0 focus:border-blue-600 pl-2"
+						value={paymentForm.type}
+						onChange={e => {
+							const type = e.currentTarget.value as 'cash' | 'card';
+							service.send({
+								type: 'UPDATE_PAYMENT_FORM',
+								paymentForm: { ...paymentForm, type },
+							});
+						}}
+					>
+						<option value="cash">Efectivo</option>
+						<option value="card">Tarjeta</option>
+					</select>
+
+					<input
+						type="text"
+						className="block border border-slate-200 rounded-none w-full h-7 focus:ring-0 focus:border-blue-600 pl-2"
+						placeholder="$ 10,000"
+						value={paymentForm.amount}
+						onChange={e => {
+							const rawValue = parseInt(e.currentTarget.value);
+							const value = isNaN(rawValue) ? 0 : rawValue;
+							const amount = value < 0 ? 0 : value;
+							service.send({
+								type: 'UPDATE_PAYMENT_FORM',
+								paymentForm: { ...paymentForm, amount },
+							});
+						}}
+						onFocus={e => e.currentTarget.select()}
+					/>
+					<button
+						className="px-2 py-1 bg-red-600 text-white font-medium"
+						onClick={() => service.send({ type: 'REMOVE_PAYMENT_FORM', id: paymentForm.id })}
+					>
+						Quitar
+					</button>
+				</div>
+			))}
+
+			<button
+				className="px-6 py-2 bg-blue-600 font-medium text-white"
+				onClick={() =>
+					service.send({
+						type: 'ADD_PAYMENT_FORM',
+						paymentForm: { id: paymentForms.length + 1, amount: 0, type: 'cash' },
+					})
+				}
+			>
+				Agregar forma de pago
+			</button>
+
+			<p>Total recolectado: ${totalCollected}</p>
+		</div>
 	);
 }
 
@@ -239,7 +312,7 @@ function TotalsSummary() {
 	const { discount, subTotal, tax } = useSelector(service, totalsSelector);
 
 	return (
-		<div className="flex-1">
+		<div>
 			<p className="font-medium">
 				<span className="text-base">Subtotal:</span> ${subTotal}
 			</p>

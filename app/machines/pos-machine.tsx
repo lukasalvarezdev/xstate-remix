@@ -35,13 +35,23 @@ const posMachine = createMachine<MachineContext, EventTypes>({
 	id: 'pos',
 	predictableActionArguments: true,
 	initial: 'editing',
-	context: { products: [], paymentForms: [] },
+	context: { products: [], paymentForms: [{ amount: 0, type: 'cash', id: 1 }] },
 	states: {
 		editing: {
 			on: {
 				ADD_PRODUCT: {
 					actions: assign({
 						products: ({ products }, { product }) => [product, ...products],
+						paymentForms: ({ paymentForms, products }, { product }) => {
+							const paymentForm = paymentForms.length === 1 ? paymentForms[0] : undefined;
+
+							if (paymentForm && products.length === 0) {
+								const total = product.price * product.quantity;
+								return [{ ...paymentForm, amount: total }];
+							}
+
+							return paymentForms;
+						},
 					}),
 				},
 				SET_PRODUCTS: { actions: assign({ products: (_, { products }) => products }) },
@@ -70,6 +80,34 @@ const posMachine = createMachine<MachineContext, EventTypes>({
 							}
 
 							return paymentForms;
+						},
+					}),
+				},
+				SET_CLIENT: { actions: assign({ clientId: (_, { clientId }) => clientId }) },
+				SET_PRICE_LIST: {
+					actions: assign({ priceListId: (_, { priceListId }) => priceListId }),
+				},
+				SET_PAYMENT_FORMS: {
+					actions: assign({ paymentForms: (_, { paymentForms }) => paymentForms }),
+				},
+				ADD_PAYMENT_FORM: {
+					actions: assign({
+						paymentForms: ({ paymentForms }, { paymentForm }) => [...paymentForms, paymentForm],
+					}),
+				},
+				REMOVE_PAYMENT_FORM: {
+					actions: assign({
+						paymentForms: ({ paymentForms }, { id }) =>
+							paymentForms.filter(paymentForm => paymentForm.id !== id),
+					}),
+				},
+				UPDATE_PAYMENT_FORM: {
+					actions: assign({
+						paymentForms: ({ paymentForms }, { paymentForm }) => {
+							const index = paymentForms.findIndex(t => t.id === paymentForm.id);
+							const newPaymentForms = [...paymentForms];
+							newPaymentForms[index] = paymentForm;
+							return newPaymentForms;
 						},
 					}),
 				},
