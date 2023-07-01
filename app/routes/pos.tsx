@@ -15,9 +15,10 @@ export default function Component() {
 				<div className="w-full md:grid grid-cols-40/60 flex-1">
 					<div className="border-r border-slate-200 flex flex-col">
 						<ProductsSearchList />
-						<div className="flex-1">
+						<div className="flex-1 overflow-auto p-4">
 							<TotalsSummary />
 							<PaymentForms />
+							<GlobalDiscountAndNotesField />
 						</div>
 					</div>
 
@@ -119,6 +120,41 @@ function ClientAndPriceListSelector() {
 	);
 }
 
+function GlobalDiscountAndNotesField() {
+	const service = usePosService();
+	const products = useSelector(service, selectedProductsSelector);
+	const [discount, setDiscount] = React.useState(0);
+	const [notes, setNotes] = React.useState('');
+
+	return (
+		<div className="mt-4">
+			<input
+				type="text"
+				className="pl-3 h-10 block w-full border border-slate-200 mb-4"
+				placeholder="0%"
+				value={discount}
+				onChange={e => {
+					const rawValue = parseInt(e.currentTarget.value);
+					const value = isNaN(rawValue) ? 0 : rawValue;
+					const discountValue = value < 0 ? 0 : value;
+					setDiscount(discountValue);
+					service.send({
+						type: 'SET_PRODUCTS',
+						products: products.map(product => ({ ...product, discount: discountValue })),
+					});
+				}}
+			/>
+
+			<textarea
+				className="pl-3 h-20 pt-1 block w-full border border-slate-200 resize-none"
+				placeholder="Notas de la venta"
+				value={notes}
+				onChange={e => setNotes(e.currentTarget.value)}
+			/>
+		</div>
+	);
+}
+
 function ProductsSearchList() {
 	const fetcher = useFetcher();
 	const [search, setSearch] = React.useState('');
@@ -156,18 +192,18 @@ function ProductsSearchList() {
 	);
 }
 
-function addedQuantitySelector(state: PosStateType, id: number) {
+function safeProductItemSelector(state: PosStateType, id: number) {
 	try {
-		const product = productItemSelector(state, id);
-		return product.quantity;
-	} catch (error) {
-		return 0;
-	}
+		return productItemSelector(state, id);
+	} catch (error) {}
 }
 
 const ProductSearchItem = React.memo(({ product }: { product: SearchProduct }) => {
 	const service = usePosService();
-	const addedQuantity = useSelector(service, state => addedQuantitySelector(state, product.id));
+	const selectedProduct = useSelector(service, state =>
+		safeProductItemSelector(state, product.id),
+	);
+	const addedQuantity = selectedProduct?.quantity || 0;
 
 	return (
 		<button
@@ -176,14 +212,17 @@ const ProductSearchItem = React.memo(({ product }: { product: SearchProduct }) =
 				addedQuantity ? 'bg-slate-50' : ''
 			}`}
 			onClick={() => {
-				if (addedQuantity) {
+				if (selectedProduct) {
 					service.send({
 						type: 'UPDATE_PRODUCT',
-						product: { ...product, quantity: addedQuantity + 1 },
+						product: { ...selectedProduct, quantity: addedQuantity + 1 },
 					});
 					focusQuantityInputByProductId(product.id);
 				} else {
-					service.send({ type: 'ADD_PRODUCT', product: { ...product, quantity: 1 } });
+					service.send({
+						type: 'ADD_PRODUCT',
+						product: { ...product, quantity: 1, discount: 0 },
+					});
 					focusQuantityInputByProductId(product.id);
 				}
 			}}
@@ -241,6 +280,7 @@ function productItemSelector(state: PosStateType, id: number) {
 const SelectedProductItem = React.memo(({ id }: { id: number }) => {
 	const service = usePosService();
 	const product = useSelector(service, state => productItemSelector(state, id));
+	const { total } = getProductTotal(product, true);
 
 	return (
 		<div
@@ -297,7 +337,7 @@ const SelectedProductItem = React.memo(({ id }: { id: number }) => {
 					}}
 				/>
 			</p>
-			<p>${product.quantity * product.price}</p>
+			<p>${total}</p>
 			<p>Más</p>
 		</div>
 	);
@@ -393,13 +433,14 @@ function getProductTotal(product: Product, taxIncluded = false) {
 	const taxToSubtract = taxIncluded ? individualTax : 0;
 	const subTotal = (product.price - taxToSubtract) * product.quantity;
 	const tax = individualTax * product.quantity;
-	const total = subTotal + tax;
+	const discount = (product.discount / 100) * subTotal;
+	const total = subTotal + tax - discount;
 
 	return {
 		subTotal: Math.round(subTotal),
 		total: Math.round(total),
 		tax: Math.round(tax),
-		discount: 0,
+		discount: Math.round(discount),
 	};
 }
 

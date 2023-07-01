@@ -9,6 +9,7 @@ export type Product = {
 	price: number;
 	quantity: number;
 	tax: number;
+	discount: number;
 };
 type PaymentForm = { id: number; amount: number; type: 'cash' | 'card' };
 
