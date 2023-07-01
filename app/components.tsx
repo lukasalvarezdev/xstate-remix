@@ -1,24 +1,12 @@
 import { useFetcher } from '@remix-run/react';
 import * as React from 'react';
 
-export default function Component() {
-	return (
-		<div className="w-full max-w-xs mx-auto py-6">
-			<div className="mb-4">
-				<ClientCombobox />
-			</div>
-
-			<PriceListSelectorPopover defaultValue={priceLists[0]} onChange={console.log} />
-		</div>
-	);
-}
-
 // TODO: WORK WITH SEARCH PARAMS
 // TODO: USEONCLICKOUTSIDE
 // TODO: USEDEBOUNCE
 
 type ClientComboboxProps = { onChange?: (client: Client) => void; defaultValue?: Client };
-function ClientCombobox({ onChange, defaultValue }: ClientComboboxProps) {
+export function ClientCombobox({ onChange, defaultValue }: ClientComboboxProps) {
 	const [state, dispatch] = React.useReducer(reducer, {
 		...initialState,
 		selectedClient: defaultValue || initialState.selectedClient,
@@ -43,7 +31,7 @@ function ClientCombobox({ onChange, defaultValue }: ClientComboboxProps) {
 	return (
 		<div className="relative">
 			<button
-				className="border border-slate-200 flex items-center justify-between px-3 py-2 w-full hover:bg-slate-50"
+				className="border border-slate-200 flex items-center justify-between px-3 py-2 w-full hover:bg-slate-50 whitespace-nowrap overflow-hidden overflow-ellipsis"
 				onClick={() => dispatch({ type: isOpen ? 'close' : 'open' })}
 			>
 				{selectedClient.name}
@@ -91,11 +79,7 @@ function ClientCombobox({ onChange, defaultValue }: ClientComboboxProps) {
 }
 
 type Client = { id: number; name: string };
-type State = {
-	isOpen: boolean;
-	selectedClient: Client;
-	search: string;
-};
+type State = { isOpen: boolean; selectedClient: Client; search: string };
 type Action =
 	| { type: 'open' }
 	| { type: 'close' }
@@ -127,17 +111,11 @@ function match(clients: Client[], search: string) {
 	return clients.filter(client => client.name.toLowerCase().includes(search.toLowerCase()));
 }
 
-type PriceList = { id: number; name: string };
-const priceLists = [
-	{ id: 1, name: 'Lista 1' },
-	{ id: 2, name: 'Lista 2' },
-	{ id: 3, name: 'Lista 3' },
-];
-type PriceListSelectorPopoverProps = {
+type PriceListPopoverProps = {
 	onChange: (priceList: PriceList) => void;
 	defaultValue: PriceList;
 };
-function PriceListSelectorPopover({ onChange, defaultValue }: PriceListSelectorPopoverProps) {
+export function PriceListPopover({ onChange, defaultValue }: PriceListPopoverProps) {
 	const [priceList, setPriceList] = React.useState(defaultValue);
 	const [isOpen, setIsOpen] = React.useState(false);
 
@@ -179,3 +157,10 @@ function PriceListSelectorPopover({ onChange, defaultValue }: PriceListSelectorP
 		</div>
 	);
 }
+
+type PriceList = { id: number; name: string };
+const priceLists = [
+	{ id: 1, name: 'Lista 1' },
+	{ id: 2, name: 'Lista 2' },
+	{ id: 3, name: 'Lista 3' },
+];

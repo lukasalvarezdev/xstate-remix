@@ -3,8 +3,10 @@ import { useFetcher } from '@remix-run/react';
 import type { PosStateType } from '~/machines/pos-machine';
 import { PosServiceProvider, usePosService } from '~/machines/pos-machine';
 import { useSelector } from '@xstate/react';
+import { ClientCombobox, PriceListPopover } from '~/components';
+import type { Product } from '~/machines/pos-machine';
 
-type SearchProduct = { id: number; name: string; price: number; stock: number };
+type SearchProduct = { id: number; name: string; price: number; stock: number; tax: number };
 
 export default function Component() {
 	return (
@@ -13,15 +15,34 @@ export default function Component() {
 				<div className="w-full md:grid grid-cols-40/60 flex-1">
 					<div className="border-r border-slate-200 flex flex-col">
 						<ProductsSearchList />
-						<div className="flex-1"></div>
+						<TotalsSummary />
 					</div>
 
-					<SelectedProductsList />
+					<div>
+						<ClientAndPriceListSelector />
+						<SelectedProductsList />
+					</div>
 				</div>
 
 				<TotalsSummaryFooter />
 			</main>
 		</PosServiceProvider>
+	);
+}
+
+function ClientAndPriceListSelector() {
+	const service = usePosService();
+
+	return (
+		<div className="grid grid-cols-2 gap-4">
+			<ClientCombobox
+				onChange={({ id }) => service.send({ type: 'SET_CLIENT', clientId: id })}
+			/>
+			<PriceListPopover
+				onChange={({ id }) => service.send({ type: 'SET_PRICE_LIST', priceListId: id })}
+				defaultValue={{ id: 1, name: 'Lista de precios 1' }}
+			/>
+		</div>
 	);
 }
 
@@ -70,17 +91,10 @@ function addedQuantitySelector(state: PosStateType, id: number) {
 		return 0;
 	}
 }
+
 const ProductSearchItem = React.memo(({ product }: { product: SearchProduct }) => {
 	const service = usePosService();
 	const addedQuantity = useSelector(service, state => addedQuantitySelector(state, product.id));
-
-	function focusQuantityInput() {
-		setTimeout(() => {
-			const addedProduct = document.getElementById(`selected-product-${product.id}`);
-			const quantityInput = addedProduct?.querySelector('input');
-			quantityInput?.focus();
-		}, 50);
-	}
 
 	return (
 		<button
@@ -94,10 +108,10 @@ const ProductSearchItem = React.memo(({ product }: { product: SearchProduct }) =
 						type: 'UPDATE_PRODUCT',
 						product: { ...product, quantity: addedQuantity + 1 },
 					});
-					focusQuantityInput();
+					focusQuantityInputByProductId(product.id);
 				} else {
 					service.send({ type: 'ADD_PRODUCT', product: { ...product, quantity: 1 } });
-					focusQuantityInput();
+					focusQuantityInputByProductId(product.id);
 				}
 			}}
 		>
@@ -217,14 +231,25 @@ const SelectedProductItem = React.memo(({ id }: { id: number }) => {
 });
 
 function totalsSelector(state: PosStateType) {
-	return state.context.products.reduce(
-		(acc, product) => {
-			return {
-				quantity: acc.quantity + product.quantity,
-				total: acc.total + product.quantity * product.price,
-			};
-		},
-		{ quantity: 0, total: 0 },
+	return getTotals(state.context.products, true);
+}
+
+function TotalsSummary() {
+	const service = usePosService();
+	const { discount, subTotal, tax } = useSelector(service, totalsSelector);
+
+	return (
+		<div className="flex-1">
+			<p className="font-medium">
+				<span className="text-base">Subtotal:</span> ${subTotal}
+			</p>
+			<p className="font-medium">
+				<span className="text-base">Impuestos:</span> ${tax}
+			</p>
+			<p className="font-medium">
+				<span className="text-base">Descuento:</span> ${discount}
+			</p>
+		</div>
 	);
 }
 
@@ -240,10 +265,75 @@ function TotalsSummaryFooter() {
 
 			<button
 				className="px-6 py-2 bg-blue-600 font-medium text-white"
-				onClick={() => service.send({ type: 'SET_PRODUCTS', products: [] })}
+				onClick={() => service.send({ type: 'RESET_SALE' })}
 			>
 				Crear venta e imprimir
 			</button>
 		</div>
 	);
+}
+
+function focusQuantityInputByProductId(id: number) {
+	setTimeout(() => {
+		const addedProduct = document.getElementById(`selected-product-${id}`);
+		const quantityInput = addedProduct?.querySelector('input');
+		quantityInput?.focus();
+	}, 50);
+}
+
+/**
+ *
+ * @param products
+ * @param taxIncluded Indicates if the tax is included in the price of the product,
+ * if it is not included, the tax will be calculated separately. Usually the tax is included
+ * but in the case of electronic invoices, it is not included.
+ */
+function getTotals(products: Product[], taxIncluded?: boolean) {
+	const totals = products.reduce(
+		(acc, product) => {
+			const { subTotal, total, tax, discount } = getProductTotal(product, taxIncluded);
+
+			return {
+				subTotal: acc.subTotal + subTotal,
+				total: acc.total + total,
+				tax: acc.tax + tax,
+				discount: acc.discount + discount,
+				quantity: acc.quantity + product.quantity,
+			};
+		},
+		{ subTotal: 0, total: 0, tax: 0, discount: 0, quantity: 0 },
+	);
+
+	return {
+		subTotal: totals.subTotal,
+		total: totals.total,
+		tax: totals.tax,
+		discount: totals.discount,
+		quantity: totals.quantity,
+	};
+}
+
+function getProductTotal(product: Product, taxIncluded?: boolean) {
+	const subTotal = product.quantity * product.price;
+	const tax = taxIncluded
+		? getTaxValueFromPriceWithTax(product)
+		: getTaxValueFromPriceWithoutTax(product);
+	const total = subTotal + (taxIncluded ? 0 : tax);
+
+	return {
+		subTotal: Math.trunc(subTotal),
+		total: Math.trunc(total),
+		tax: Math.trunc(tax),
+		discount: 0,
+	};
+}
+
+type TaxGetterArgs = { price: number; tax: number };
+
+export function getTaxValueFromPriceWithTax({ price, tax }: TaxGetterArgs) {
+	return price - price / Number(`1.${tax}`);
+}
+
+export function getTaxValueFromPriceWithoutTax({ price, tax }: TaxGetterArgs) {
+	return price * (tax / 100);
 }

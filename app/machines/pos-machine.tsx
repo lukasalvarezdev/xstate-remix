@@ -3,13 +3,26 @@ import { useInterpret } from '@xstate/react';
 import type { StateFrom } from 'xstate';
 import { assign, createMachine } from 'xstate';
 
-export type Product = { id: number; name: string; price: number; quantity: number };
-type MachineContext = { products: Array<Product> };
+export type Product = {
+	id: number;
+	name: string;
+	price: number;
+	quantity: number;
+	tax: number;
+};
+type MachineContext = {
+	products: Array<Product>;
+	clientId?: number;
+	priceListId?: number;
+};
 type EventTypes =
 	| { type: 'ADD_PRODUCT'; product: Product }
-	| { type: 'SET_PRODUCTS'; products: Array<Product> }
 	| { type: 'REMOVE_PRODUCT'; id: Product['id'] }
-	| { type: 'UPDATE_PRODUCT'; product: Product };
+	| { type: 'SET_PRODUCTS'; products: Array<Product> }
+	| { type: 'UPDATE_PRODUCT'; product: Product }
+	| { type: 'SET_CLIENT'; clientId: number }
+	| { type: 'SET_PRICE_LIST'; priceListId: number }
+	| { type: 'RESET_SALE' };
 
 const posMachine = createMachine<MachineContext, EventTypes>({
 	id: 'pos',
@@ -25,6 +38,9 @@ const posMachine = createMachine<MachineContext, EventTypes>({
 					}),
 				},
 				SET_PRODUCTS: { actions: assign({ products: (_, { products }) => products }) },
+				RESET_SALE: {
+					actions: assign({ products: [], clientId: undefined, priceListId: undefined }),
+				},
 				REMOVE_PRODUCT: {
 					actions: assign({
 						products: ({ products }, { id }) => products.filter(product => product.id !== id),
