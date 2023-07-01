@@ -313,17 +313,19 @@ function getTotals(products: Product[], taxIncluded?: boolean) {
 	};
 }
 
-function getProductTotal(product: Product, taxIncluded?: boolean) {
-	const subTotal = product.quantity * product.price;
-	const tax = taxIncluded
+function getProductTotal(product: Product, taxIncluded = false) {
+	const individualTax = taxIncluded
 		? getTaxValueFromPriceWithTax(product)
 		: getTaxValueFromPriceWithoutTax(product);
-	const total = subTotal + (taxIncluded ? 0 : tax);
+	const taxToSubtract = taxIncluded ? individualTax : 0;
+	const subTotal = (product.price - taxToSubtract) * product.quantity;
+	const tax = individualTax * product.quantity;
+	const total = subTotal + tax;
 
 	return {
-		subTotal: Math.trunc(subTotal),
-		total: Math.trunc(total),
-		tax: Math.trunc(tax),
+		subTotal: Math.round(subTotal),
+		total: Math.round(total),
+		tax: Math.round(tax),
 		discount: 0,
 	};
 }

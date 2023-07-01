@@ -10,8 +10,11 @@ export type Product = {
 	quantity: number;
 	tax: number;
 };
+type PaymentForm = { id: number; amount: number; type: 'cash' | 'card' };
+
 type MachineContext = {
 	products: Array<Product>;
+	paymentForms: Array<PaymentForm>;
 	clientId?: number;
 	priceListId?: number;
 };
@@ -22,13 +25,17 @@ type EventTypes =
 	| { type: 'UPDATE_PRODUCT'; product: Product }
 	| { type: 'SET_CLIENT'; clientId: number }
 	| { type: 'SET_PRICE_LIST'; priceListId: number }
-	| { type: 'RESET_SALE' };
+	| { type: 'RESET_SALE' }
+	| { type: 'SET_PAYMENT_FORMS'; paymentForms: Array<PaymentForm> }
+	| { type: 'ADD_PAYMENT_FORM'; paymentForm: PaymentForm }
+	| { type: 'REMOVE_PAYMENT_FORM'; id: PaymentForm['id'] }
+	| { type: 'UPDATE_PAYMENT_FORM'; paymentForm: PaymentForm };
 
 const posMachine = createMachine<MachineContext, EventTypes>({
 	id: 'pos',
 	predictableActionArguments: true,
 	initial: 'editing',
-	context: { products: [] },
+	context: { products: [], paymentForms: [] },
 	states: {
 		editing: {
 			on: {
@@ -50,9 +57,19 @@ const posMachine = createMachine<MachineContext, EventTypes>({
 					actions: assign({
 						products: ({ products }, { product }) => {
 							const index = products.findIndex(t => t.id === product.id);
-							const newTodos = [...products];
-							newTodos[index] = product;
-							return newTodos;
+							const newProducts = [...products];
+							newProducts[index] = product;
+							return newProducts;
+						},
+						paymentForms: ({ paymentForms, products }, { product }) => {
+							const paymentForm = paymentForms.length === 1 ? paymentForms[0] : undefined;
+
+							if (paymentForm && products.length === 1) {
+								const total = product.price * product.quantity;
+								return [{ ...paymentForm, amount: total }];
+							}
+
+							return paymentForms;
 						},
 					}),
 				},
