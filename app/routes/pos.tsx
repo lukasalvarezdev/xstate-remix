@@ -11,26 +11,45 @@ type SearchProduct = { id: number; name: string; price: number; stock: number; t
 export default function Component() {
 	return (
 		<PosServiceProvider initialProducts={[]}>
-			<main className="h-screen flex flex-col">
-				<div className="w-full md:grid grid-cols-40/60 flex-1">
-					<div className="border-r border-slate-200 flex flex-col">
-						<ProductsSearchList />
-						<div className="flex-1 overflow-auto p-4">
+			<main className="h-full relative">
+				<div className="md:grid grid-rows-1 grid-cols-40/60 h-full">
+					<div className="flex flex-col h-full">
+						<div className="flex-grow overflow-y-auto">
+							<ProductsSearchList />
+						</div>
+						<div className="flex-grow overflow-y-auto p-4">
 							<TotalsSummary />
 							<PaymentForms />
 							<GlobalDiscountAndNotesField />
 						</div>
+						<HiddenTotalsSummaryFooter />
 					</div>
-
-					<div>
-						<ClientAndPriceListSelector />
-						<SelectedProductsList />
+					<div className="flex flex-col">
+						<div className="flex-grow">
+							<ClientAndPriceListSelector />
+							<SelectedProductsList />
+						</div>
+						<HiddenTotalsSummaryFooter />
 					</div>
 				</div>
 
-				<TotalsSummaryFooter />
+				<div className="fixed w-full bottom-0">
+					<TotalsSummaryFooter />
+				</div>
 			</main>
 		</PosServiceProvider>
+	);
+}
+
+/**
+ *  A footer that is hidden but still takes up space. I couldn't find a better way to make the
+ *  UI.
+ */
+function HiddenTotalsSummaryFooter() {
+	return (
+		<div className="flex-shrink-0 opacity-0 pointer-events-none">
+			<TotalsSummaryFooter />
+		</div>
 	);
 }
 
@@ -166,7 +185,7 @@ function ProductsSearchList() {
 	}, [load, search]);
 
 	return (
-		<div className="flex-1 border-b border-slate-200 overflow-auto relative">
+		<div className="border-b border-slate-200 relative">
 			<div className="flex border-b border-slate-200 sticky top-0 bg-white">
 				<button className="h-10 px-3 grid place-items-center border-r border-slate-200 bg-blue-600 text-white hover:bg-blue-700 text-sm">
 					Menú
